@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <title>合成控制法（Synthetic Control Method） - 因果推断课程</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- 说明 -->
+    <meta name="description" content="因果推断课程：合成控制法的定义、核心思想、数学形式、证明思路、与其他方法对比以及经典案例。">
+
+    <!-- 字体（可选） -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;600;700&display=swap" rel="stylesheet" />
+
+    <!-- MathJax 用于公式渲染 -->
+    <script>
+        window.MathJax = {
+            tex: { inlineMath: [['\\(','\\)'], ['$', '$']] }
+        };
+    </script>
+    <script id="MathJax-script" async
+            src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+    </script>
+
+    <style>
+        :root {
+            --bg: #050815;
+            --bg-alt: #080d1f;
+            --card: rgba(255, 255, 255, 0.04);
+            --border-subtle: rgba(255, 255, 255, 0.12);
+            --accent: #4fd1c5;
+            --accent-soft: rgba(79, 209, 197, 0.15);
+            --accent-strong: #f6ad55;
+            --text-main: #f7fafc;
+            --text-muted: #a0aec0;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Nunito", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: radial-gradient(circle at top, #1a202c 0, #050815 50%);
+            color: var(--text-main);
+            line-height: 1.7;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        .container {
+            max-width: 1080px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* 整体布局：左侧目录 + 右侧正文 */
+
+        .page-shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 20px 40px;
+            display: grid;
+            grid-template-columns: 250px minmax(0, 1fr);
+            gap: 24px;
+        }
+
+        .main-content {
+            min-width: 0;
+        }
+
+        /* 左侧目录 */
+
+        .toc {
+            position: sticky;
+            top: 72px;
+            align-self: flex-start;
+            padding: 14px 16px 16px;
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            font-size: 13px;
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.7);
+        }
+
+        .toc-title {
+            font-size: 13px;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+
+        .toc-list,
+        .toc-sublist {
+            list-style: none;
+            margin: 0;
+            padding-left: 0;
+        }
+
+        .toc-item + .toc-item {
+            margin-top: 6px;
+        }
+
+        .toc-link {
+            display: inline-block;
+            padding: 2px 0;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.16s ease, transform 0.16s ease;
+        }
+
+        .toc-link:hover {
+            color: var(--accent);
+            transform: translateX(2px);
+        }
+
+        .toc-sublist {
+            margin-top: 3px;
+            padding-left: 14px;
+            border-left: 1px solid rgba(148, 163, 184, 0.4);
+        }
+
+        .toc-sublist li {
+            margin: 2px 0;
+        }
+
+        .toc-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: var(--text-muted);
+            border-top: 1px dashed rgba(148, 163, 184, 0.4);
+            padding-top: 8px;
+        }
+
+        /* 顶部导航 */
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(16px);
+            background: linear-gradient(to bottom, rgba(5, 8, 21, 0.95), rgba(5, 8, 21, 0.7), transparent);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .navbar-inner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+
+        .logo-dot {
+            width: 24px;
+            height: 24px;
+            border-radius: 999px;
+            background: conic-gradient(from 180deg, #4fd1c5, #63b3ed, #f6ad55, #4fd1c5);
+            box-shadow: 0 0 20px rgba(99, 179, 237, 0.7);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 18px;
+            font-size: 13px;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            position: relative;
+            padding-bottom: 2px;
+        }
+
+        .nav-links a::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            height: 2px;
+            width: 0;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent), var(--accent-strong));
+            transition: width 0.2s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-main);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* 顶部 Hero */
+
+        header.hero {
+            padding: 60px 0 48px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header.hero::before {
+            content: "";
+            position: absolute;
+            inset: -160px;
+            background:
+                radial-gradient(circle at 10% 0%, rgba(79, 209, 197, 0.28) 0, transparent 55%),
+                radial-gradient(circle at 90% 0%, rgba(99, 179, 237, 0.24) 0, transparent 55%);
+            opacity: 0.7;
+            mix-blend-mode: screen;
+            pointer-events: none;
+        }
+
+        .hero-inner {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+            gap: 32px;
+            align-items: center;
+        }
+
+        .eyebrow {
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .hero-title {
+            font-size: clamp(30px, 4vw, 38px);
+            line-height: 1.15;
+            margin: 0 0 12px;
+        }
+
+        .hero-title span.highlight {
+            background: linear-gradient(120deg, #fdfdfd, #bee3f8, #f6ad55);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .hero-subtitle {
+            font-size: 15px;
+            color: var(--text-muted);
+            max-width: 560px;
+            margin-bottom: 20px;
+        }
+
+        .hero-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .tag-pill {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: rgba(5, 11, 30, 0.9);
+            color: var(--text-muted);
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            border-radius: 999px;
+            padding: 8px 16px;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: linear-gradient(130deg, var(--accent), var(--accent-strong));
+            color: #1a202c;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.55);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+        }
+
+        .btn-outline {
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(5, 9, 26, 0.95);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--accent);
+            transform: translateY(-1px);
+        }
+
+        .hero-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        .hero-meta strong {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .hero-right-card {
+            border-radius: 20px;
+            padding: 18px 18px 16px;
+            background: radial-gradient(circle at 0 0, rgba(79, 209, 197, 0.12) 0, transparent 60%),
+                        var(--bg-alt);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.75);
+            font-size: 13px;
+        }
+
+        .hero-right-card h2 {
+            margin: 0 0 10px;
+            font-size: 16px;
+        }
+
+        .hero-right-card ul {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-muted);
+        }
+
+        .hero-right-card li + li {
+            margin-top: 4px;
+        }
+
+        /* 通用 section */
+
+        section.section {
+            padding: 50px 0;
+            position: relative;
+        }
+
+        section.section:nth-of-type(even) {
+            background: radial-gradient(circle at top, #0b1021 0, #050815 60%);
+        }
+
+        .section-header {
+            margin-bottom: 22px;
+        }
+
+        .section-eyebrow {
+            font-size: 11px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 4px;
+        }
+
+        .section-title {
+            font-size: 22px;
+            margin: 0 0 6px;
+        }
+
+        .section-desc {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+            max-width: 680px;
+        }
+
+        .card {
+            border-radius: 16px;
+            padding: 16px 18px;
+            background: var(--card);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .card + .card {
+            margin-top: 14px;
+        }
+
+        /* 公式块 */
+
+        .formula-block {
+            font-family: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 14px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .formula-note {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* 双栏布局 */
+
+        .two-column {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .chip {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            color: var(--text-muted);
+        }
+
+        /* 示例数据表格与步骤列表 */
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+            text-align: right;
+        }
+
+        .data-table th:first-child,
+        .data-table td:first-child {
+            text-align: left;
+        }
+
+        .data-table thead th {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .data-note {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .example-steps {
+            font-size: 13px;
+            padding-left: 18px;
+            margin-top: 8px;
+        }
+
+        .example-steps li {
+            margin-bottom: 6px;
+        }
+
+        .card h4 {
+            margin-top: 10px;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        /* 简易图表盒子 */
+
+        .chart-box {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            font-size: 12px;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .chart-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .chart-legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--text-muted);
+        }
+
+        .legend-swatch {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--accent);
+        }
+
+        .legend-swatch.synthetic {
+            background: var(--accent-strong);
+        }
+
+        .chart-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .chart-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .chart-label {
+            width: 40px;
+            flex-shrink: 0;
+            color: var(--text-muted);
+        }
+
+        .chart-bar-group {
+            display: flex;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .chart-bar {
+            height: 8px;
+            border-radius: 999px;
+            opacity: 0.85;
+        }
+
+        .chart-bar.actual {
+            background: var(--accent);
+        }
+
+        .chart-bar.synthetic {
+            background: var(--accent-strong);
+        }
+
+        /* 对比表格 */
+
+        .table-wrapper {
+            margin-top: 12px;
+            overflow-x: auto;
+        }
+
+        table.compare {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.compare th,
+        table.compare td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+            vertical-align: top;
+        }
+
+        table.compare th {
+            text-align: left;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+
+        table.compare tr:nth-child(even) td {
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        /* 脚注 */
+
+        .footnote {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* 页脚 */
+
+        footer {
+            padding: 18px 20px 24px;
+            border-top: 1px solid rgba(148, 163, 184, 0.4);
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            background: #050815;
+        }
+
+        footer a {
+            color: var(--accent);
+        }
+
+        .back-to-top {
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 12px;
+            color: var(--accent);
+        }
+
+        /* 响应式 */
+
+        @media (max-width: 960px) {
+            .page-shell {
+                grid-template-columns: minmax(0, 1fr);
+                padding-inline: 16px;
+                gap: 16px;
+            }
+
+            .toc {
+                position: static;
+                order: -1;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+            }
+        }
+
+        @media (max-width: 860px) {
+            .hero-inner {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .hero-right-card {
+                order: -1;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .nav-links {
+                display: none;
+            }
+
+            .navbar-inner {
+                padding-inline: 16px;
+            }
+        }
+    </style>
+</head>
+<body id="top">
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="navbar-inner container">
+            <div class="logo">
+                <span class="logo-dot" aria-hidden="true"></span>
+                CAUSAL • SCM
+            </div>
+            <div class="nav-links">
+                <a href="#overview">概览</a>
+                <a href="#definition">形式化定义</a>
+                <a href="#derivation">公式推导</a>
+                <a href="#theory">理论与证明</a>
+                <a href="#comparison">与其他方法对比</a>
+                <a href="#examples">经典案例</a>
+                <a href="#reading">参考文献</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="page-shell">
+        <!-- 左侧课程目录 -->
+        <aside class="toc" aria-label="课程结构目录">
+            <div class="toc-title">课程结构</div>
+            <ol class="toc-list">
+                <li class="toc-item">
+                    <a class="toc-link" href="#overview">1. 直观理解与适用场景</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#overview-1-1">1.1 直觉：合成“影子世界”</a></li>
+                        <li><a class="toc-link" href="#overview-1-2">1.2 典型适用场景</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#definition">2. 形式化定义与记号</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#definition-2-1">2.1 面板结构与潜在结果</a></li>
+                        <li><a class="toc-link" href="#definition-2-2">2.2 合成控制的定义</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#derivation">3. 权重求解与优化</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#derivation-3-1">3.1 特征向量与加权距离</a></li>
+                        <li><a class="toc-link" href="#derivation-3-2">3.2 优化问题</a></li>
+                        <li><a class="toc-link" href="#derivation-3-3">3.3 得到权重后的估计</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#theory">4. 理论基础与因子模型</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#theory-4-1">4.1 未受干预结果的因子模型</a></li>
+                        <li><a class="toc-link" href="#theory-4-2">4.2 理想权重与识别条件</a></li>
+                        <li><a class="toc-link" href="#theory-4-3">4.3 证明思路小结</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#comparison">5. 与其他方法的对比</a>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#examples">6. 经典案例与练习</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#examples-6-1">6.1 巴斯克恐怖主义</a></li>
+                        <li><a class="toc-link" href="#examples-6-2">6.2 加州控烟政策</a></li>
+                    </ul>
+                </li>
+                <li class="toc-item">
+                    <a class="toc-link" href="#reading">7. 实务要点与阅读</a>
+                    <ul class="toc-sublist">
+                        <li><a class="toc-link" href="#reading-7-1">7.1 实务小贴士</a></li>
+                        <li><a class="toc-link" href="#reading-7-2">7.2 推荐文献</a></li>
+                    </ul>
+                </li>
+            </ol>
+            <div class="toc-note">
+                建议按顺序学习；也可以根据需要直接跳到案例（第 6 节）或实务与阅读（第 7 节）。
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <!-- Hero -->
+            <header class="hero">
+                <div class="container hero-inner">
+                    <div>
+                        <div class="eyebrow">Causal Inference · Synthetic Control Method</div>
+                        <h1 class="hero-title">
+                            <span class="highlight">合成控制法（SCM）</span><br />
+                            对单一处理对象的面板因果推断工具
+                        </h1>
+                        <p class="hero-subtitle">
+                            当只有<strong>一个或少数处理单位</strong>，但有<strong>多个未处理单位的长期面板数据</strong>时，合成控制法提供了一种系统的方式，
+                            用加权的“合成对照组”来估计政策、战争、自然灾害等大规模干预的因果效应。
+                        </p>
+
+                        <div class="hero-tags">
+                            <span class="tag-pill">适用于：政策评估 / 宏观冲击</span>
+                            <span class="tag-pill">面板数据 · 多个时间点</span>
+                            <span class="tag-pill">融合 Matching + DiD</span>
+                            <span class="tag-pill">单一处理组的准实验方法</span>
+                        </div>
+
+                        <div class="hero-actions">
+                            <a href="#definition" class="btn btn-primary">从定义开始阅读</a>
+                            <a href="#examples" class="btn btn-outline">直接看经典案例</a>
+                        </div>
+
+                        <div class="hero-meta">
+                            目标：理解 <strong>定义</strong>、<strong>权重求解</strong>、<strong>识别思想</strong>，以及其与差分中的差分等方法的联系。
+                        </div>
+                    </div>
+
+                    <aside class="hero-right-card">
+                        <h2>本节学习目标</h2>
+                        <ul>
+                            <li>知道合成控制法适用的典型场景与基本直觉</li>
+                            <li>掌握面板记号、合成权重的数学定义和求解思路</li>
+                            <li>理解基于因子模型的识别条件和大致证明框架</li>
+                            <li>能对比 DiD / Matching / 回归等方法的优劣与假设</li>
+                            <li>能复述至少一个经典应用（如加州控烟政策、巴斯克恐怖主义）</li>
+                        </ul>
+                    </aside>
+                </div>
+            </header>
+
+            <main>
+                <!-- 概览与直觉 -->
+                <section id="overview" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Overview</div>
+                            <h2 class="section-title">1. 直观理解与适用场景</h2>
+                            <p class="section-desc">
+                                合成控制法由 Abadie 等人提出，专门用来评估“只作用在很少几个单位上的宏观干预”——比如一个省的税改、一个国家的战争、一州的控烟法案等。
+                            </p>
+                        </div>
+
+                        <div class="two-column">
+                            <div class="card">
+                                <h3 id="overview-1-1">1.1 直觉：给处理组“找一个加权版的影子世界”</h3>
+                                <p>
+                                    有很多没有受到干预的对照地区，可以通过<strong>非负权重</strong>把它们加起来，
+                                    组成一个“合成地区”，使得在干预之前，这个合成地区在
+                                    <strong>关键协变量和结果变量上尽量与处理地区一样</strong>。
+                                </p>
+                                <p>
+                                    如果我们相信这些对照地区背后的<strong>未观测因素</strong>（如经济结构、文化等）的线性组合也能拟合处理地区，那么：
+                                </p>
+                                <p>
+                                    <em>干预之后，这个合成地区的趋势，就可以看作“如果没有干预，真实处理地区本来会走的轨迹”。</em>
+                                </p>
+                                <p>
+                                    于是：干预后真实处理地区与合成地区之间的差，就被解释为干预的因果效应。
+                                </p>
+                            </div>
+
+                            <div class="card">
+                                <h3 id="overview-1-2">1.2 典型适用场景</h3>
+                                <ul>
+                                    <li>只有<strong>一个处理单位</strong>（或很少几个）：如某一州 / 省 / 国家。</li>
+                                    <li>多个未处理单位：其他州 / 省 / 国家作为“候选对照库”。</li>
+                                    <li>有较长的<strong>干预前面板</strong>：可以用来匹配趋势。</li>
+                                    <li>关心的是某个宏观政策 / 战争 / 自然灾害等大规模冲击。</li>
+                                </ul>
+                                <div class="chip-row">
+                                    <span class="chip">加州控烟法案 Proposition 99</span>
+                                    <span class="chip">巴斯克地区恐怖主义与 GDP</span>
+                                    <span class="chip">国家统一 / 分裂 / 制度改革</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 形式化定义 -->
+                <section id="definition" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Formal Definition</div>
+                            <h2 class="section-title">2. 形式化定义与记号</h2>
+                            <p class="section-desc">
+                                我们先用面板数据的记号写清楚“处理组”“对照组”“合成控制”的数学定义，然后再讲如何求权重。
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="definition-2-1">2.1 面板结构与潜在结果</h3>
+                            <p>假设有 \(J+1\) 个单位（地区、公司等），时间 \(t = 1,\dots,T\)：</p>
+                            <ul>
+                                <li>单位 \(i = 1\)：唯一的处理单位（例如加州）。</li>
+                                <li>单位 \(i = 2,\dots,J+1\)：候选对照单位（其他州）。</li>
+                                <li>在时间 \(T_0\) 之后，单位 1 受到干预；之前没有任何单位受到干预。</li>
+                            </ul>
+
+                            <p>潜在结果记为：</p>
+                            <div class="formula-block">
+                                \[
+                                Y_{it}^N: \text{单位 } i \text{ 在 } t \text{ 时刻未受干预时的结果（no treatment）} \\
+                                Y_{it}^I: \text{单位 } i \text{ 在 } t \text{ 时刻受干预时的结果（intervention）}
+                                \]
+                            </div>
+
+                            <p>观察到的结果：</p>
+                            <div class="formula-block">
+                                \[
+                                Y_{1t} =
+                                \begin{cases}
+                                Y_{1t}^N, & t \le T_0 \\[4pt]
+                                Y_{1t}^I, & t > T_0
+                                \end{cases},
+                                \qquad
+                                Y_{it} = Y_{it}^N, \quad i = 2,\dots,J+1,\ \forall t.
+                                \]
+                            </div>
+
+                            <p>我们关心的因果效应是：</p>
+                            <div class="formula-block">
+                                \[
+                                \alpha_{1t} = Y_{1t}^I - Y_{1t}^N,\quad t > T_0.
+                                \]
+                            </div>
+                            <p>难点在于：<strong>\(Y_{1t}^N\) 在干预后不可观测</strong>，需要构造一个“合成控制”来近似它。</p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="definition-2-2">2.2 合成控制的定义</h3>
+                            <p>选择对照单位的<strong>权重向量</strong>：</p>
+                            <div class="formula-block">
+                                \[
+                                W = (w_2,\dots,w_{J+1})'
+                                \]
+                            </div>
+                            <p>满足：</p>
+                            <ul>
+                                <li>非负性：\(w_j \ge 0\)</li>
+                                <li>归一化：\(\sum_{j=2}^{J+1} w_j = 1\)</li>
+                            </ul>
+                            <p>则合成控制在时间 \(t\) 的结果为：</p>
+                            <div class="formula-block">
+                                \[
+                                Y_t^{SC}(W) = \sum_{j=2}^{J+1} w_j\, Y_{jt}.
+                                \]
+                            </div>
+                            <p>合成控制估计的处理效应：</p>
+                            <div class="formula-block">
+                                \[
+                                \hat{\alpha}_{1t}(W) = Y_{1t} - Y_t^{SC}(W),\quad t > T_0.
+                                \]
+                            </div>
+                            <p>关键问题：<strong>如何选择权重 \(W\)，使得合成控制真正像是“没被处理的单位 1”</strong>？</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 公式推导：如何求权重 -->
+                <section id="derivation" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Optimization</div>
+                            <h2 class="section-title">3. 权重求解：优化问题与公式推导</h2>
+                            <p class="section-desc">
+                                合成控制法把权重选择写成一个<strong>约束优化问题</strong>：在干预前，使处理单位与合成控制在协变量和结果上尽量接近。
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="derivation-3-1">3.1 特征向量与加权距离</h3>
+                            <p>记：</p>
+                            <ul>
+                                <li>\(\mathbf{X}_1\)：处理单位在干预前的一组<strong>预测变量</strong>与<strong>结果变量</strong>（例如多期平均 GDP、人口结构等），是列向量。</li>
+                                <li>\(\mathbf{X}_0\)：所有对照单位对应的矩阵，每一列是一个对照单位的同一组变量。</li>
+                            </ul>
+
+                            <p>例如：</p>
+                            <div class="formula-block">
+                                \[
+                                \mathbf{X}_1 =
+                                \begin{bmatrix}
+                                \text{人均 GDP（若干年前平均）} \\
+                                \text{人口、产业结构等协变量} \\
+                                Y_{1,1}, Y_{1,2}, \dots, Y_{1,T_0}
+                                \end{bmatrix},\quad
+                                \mathbf{X}_0 =
+                                \begin{bmatrix}
+                                \dots \\
+                                \dots
+                                \end{bmatrix}
+                                \]
+                            </div>
+
+                            <p>给一个正定权重矩阵 \(\mathbf{V}\)，定义匹配误差：</p>
+                            <div class="formula-block">
+                                \[
+                                \text{Loss}(W) = (\mathbf{X}_1 - \mathbf{X}_0 W)' \mathbf{V} (\mathbf{X}_1 - \mathbf{X}_0 W).
+                                \]
+                            </div>
+
+                            <p>\(\mathbf{V}\) 控制不同变量的相对重要性，通常通过交叉验证或研究者判断来选择。</p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="derivation-3-2">3.2 优化问题</h3>
+                            <p>权重的选择写成：</p>
+                            <div class="formula-block">
+                                \[
+                                \min_{W} \quad (\mathbf{X}_1 - \mathbf{X}_0 W)' \mathbf{V} (\mathbf{X}_1 - \mathbf{X}_0 W) \\
+                                \text{s.t.}\quad w_j \ge 0,\ \sum_{j=2}^{J+1} w_j = 1.
+                                \]
+                            </div>
+
+                            <p>
+                                这是一个带线性约束的<strong>二次规划（Quadratic Programming）</strong>问题，实际应用中通常用数值方法求解。
+                                如果忽略约束，目标函数是一元二次型，其最优解在理论上可以写成：
+                            </p>
+                            <div class="formula-block">
+                                \[
+                                W^\star_{\text{unconstrained}}
+                                = (\mathbf{X}_0' \mathbf{V} \mathbf{X}_0)^{-1} \mathbf{X}_0' \mathbf{V} \mathbf{X}_1,
+                                \]
+                            </div>
+                            <p class="formula-note">
+                                但这个解可能出现负权重或权重和不为 1，因此实际使用时仍需要带约束的数值优化。
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="derivation-3-3">3.3 得到权重后的因果效应估计</h3>
+                            <p>求得 \(\hat{W}\) 后：</p>
+                            <ul>
+                                <li>合成控制结果：\(\displaystyle Y_t^{SC} = \sum_{j=2}^{J+1} \hat{w}_j Y_{jt}\)</li>
+                                <li>干预效应估计：\(\displaystyle \hat{\alpha}_{1t} = Y_{1t} - Y_t^{SC},\ t > T_0\)</li>
+                                <li>有时还关心平均处理效应：\(\displaystyle \bar{\alpha}_1 = \frac{1}{T_1}\sum_{t > T_0} \hat{\alpha}_{1t}\)，其中 \(T_1 = T - T_0\)。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 理论与证明 -->
+                <section id="theory" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Theory</div>
+                            <h2 class="section-title">4. 理论基础与证明思路（因子模型）</h2>
+                            <p class="section-desc">
+                                合成控制法的识别逻辑常通过一个<strong>线性因子模型</strong>来刻画。下面是经典的 Abadie 等人的表示和证明框架。
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="theory-4-1">4.1 未受干预结果的因子模型</h3>
+                            <p>假设未受干预的潜在结果满足：</p>
+                            <div class="formula-block">
+                                \[
+                                Y_{it}^N = \delta_t + \boldsymbol{\theta}_t' \mathbf{Z}_i +
+                                \boldsymbol{\lambda}_t' \boldsymbol{\mu}_i + \varepsilon_{it},
+                                \]
+                            </div>
+                            <p>其中：</p>
+                            <ul>
+                                <li>\(\delta_t\)：在所有单位中共同的时间效应（如宏观经济周期）。</li>
+                                <li>\(\mathbf{Z}_i\)：单位 \(i\) 的观测协变量（时间不变或慢变）。</li>
+                                <li>\(\boldsymbol{\mu}_i\)：单位 \(i\) 的<strong>未观测特征载荷</strong>（如文化、制度等）。</li>
+                                <li>\(\boldsymbol{\theta}_t, \boldsymbol{\lambda}_t\)：随时间变化的系数 / 因子。</li>
+                                <li>\(\varepsilon_{it}\)：均值为 0 的误差项。</li>
+                            </ul>
+                            <p>（直观理解：\(\boldsymbol{\mu}_i\) 和 \(\boldsymbol{\lambda}_t\) 描述“潜在因子 × 地区特征”带来的复杂时间趋势。）</p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="theory-4-2">4.2 理想权重与识别条件</h3>
+                            <p>如果存在一个权重向量 \(W^\star\)，使得：</p>
+                            <div class="formula-block">
+                                \[
+                                \mathbf{Z}_1 = \sum_{j=2}^{J+1} w_j^\star \mathbf{Z}_j,\qquad
+                                \boldsymbol{\mu}_1 = \sum_{j=2}^{J+1} w_j^\star \boldsymbol{\mu}_j,
+                                \]
+                            </div>
+                            <p>则可以推导：</p>
+                            <div class="formula-block">
+                                \[
+                                Y_{1t}^N - \sum_{j=2}^{J+1} w_j^\star Y_{jt}^N
+                                = \varepsilon_{1t} - \sum_{j=2}^{J+1} w_j^\star \varepsilon_{jt},
+                                \]
+                            </div>
+                            <p>也就是说，如果<strong>合成控制在观测协变量和潜在因子上都精确匹配处理单位</strong>，那么两者的未受干预结果只差一项“加权误差”，均值为 0。</p>
+                            <p>因此在期望意义上：</p>
+                            <div class="formula-block">
+                                \[
+                                \mathbb{E}\!\left[Y_{1t}^N - \sum_{j=2}^{J+1} w_j^\star Y_{jt}^N\right] = 0.
+                                \]
+                            </div>
+
+                            <p class="formula-note">
+                                合成控制估计的干预效应
+                                \(\hat{\alpha}_{1t} = Y_{1t} - \sum_j \hat{w}_j Y_{jt}\)
+                                在 \(\hat{W} \approx W^\star\) 且误差项均值为 0 的条件下，能够接近真实的
+                                \(\alpha_{1t}\)。
+                            </p>
+                        </div>
+
+                        <div class="card">
+                            <h3 id="theory-4-3">4.3 证明思路小结（非严格形式）</h3>
+                            <ol>
+                                <li>假设未受干预结果可以写成因子模型 \(Y_{it}^N = f(\mathbf{Z}_i,\boldsymbol{\mu}_i,t) + \varepsilon_{it}\)。</li>
+                                <li>如果存在权重 \(W^\star\)，使得处理单位在协变量和潜在因子上都等于对照单位的加权平均，那么
+                                    处理单位和合成控制在<strong>所有时间段</strong>的未受干预结果仅差一个加权误差项。</li>
+                                <li>在干预前，我们利用大量的 \(t \le T_0\) 时刻的数据，通过最小化
+                                    \((\mathbf{X}_1 - \mathbf{X}_0 W)'\mathbf{V}(\mathbf{X}_1 - \mathbf{X}_0 W)\) 来找到 \(\hat{W}\)，
+                                    使其尽量接近这个理想的 \(W^\star\)。</li>
+                                <li>在干预后，如果因子结构保持稳定，则
+                                    \(\sum_j \hat{w}_j Y_{jt}\) 可以作为 \(Y_{1t}^N\) 的近似，从而
+                                    \(\hat{\alpha}_{1t} = Y_{1t} - \sum_j \hat{w}_j Y_{jt}\) 近似真实因果效应。</li>
+                            </ol>
+                            <p>
+                                严格证明中会使用更形式化的假设（如因子数有限、误差项弱相关等），但在课程层面，上述思路足以帮助理解
+                                SCM 是如何利用“多期前置数据 + 潜在因子结构”来放宽传统 DiD 的平行趋势假设。
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 对比 -->
+                <section id="comparison" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Comparison</div>
+                            <h2 class="section-title">5. 与其他因果推断方法的对比</h2>
+                            <p class="section-desc">
+                                合成控制法常被看作是“匹配 + 差分中的差分”的融合。下面与几种常见方法做一个结构化对比。
+                            </p>
+                        </div>
+
+                        <div class="table-wrapper">
+                            <table class="compare">
+                                <thead>
+                                    <tr>
+                                        <th>方法</th>
+                                        <th>典型场景</th>
+                                        <th>关键假设</th>
+                                        <th>与 SCM 的关系</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>传统 DiD<br/>(Difference-in-Differences)</td>
+                                        <td>多个处理单位、多个对照单位；结果在组内平均</td>
+                                        <td>处理组与对照组在<span style="white-space: nowrap;">“无处理世界”</span>下具有<span style="white-space: nowrap;">平行趋势</span></td>
+                                        <td>
+                                            DiD 可以看作给所有对照单位<strong>相同权重</strong>的 SCM 特例；
+                                            SCM 用数据驱动地选择权重以更好拟合干预前趋势，从而放宽平行趋势假设。
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>匹配（Matching）</td>
+                                        <td>有很多个处理个体与对照个体；主要利用截面协变量</td>
+                                        <td>在协变量条件下可忽略性；匹配后样本间可比</td>
+                                        <td>
+                                            SCM 的权重选择与匹配很像，都希望让处理单位与对照“看起来相似”，
+                                            但 SCM 充分利用<strong>时间维度的结果变量</strong>，不是只匹配协变量。
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>面板回归<br/>+ 固定效应</td>
+                                        <td>大样本、多处理单位，线性可加模型</td>
+                                        <td>线性结构、可加固定效应；通常仍隐含平行趋势假设</td>
+                                        <td>
+                                            SCM 更“非参数”，不直接假设线性关系，而是通过权重拟合整个时间路径；
+                                            但回归方法更容易做标准误和协变量控制。
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>中断时间序列<br/>(ITS)</td>
+                                        <td>单一单位，有长时间序列；没有显式对照组</td>
+                                        <td>干预前的趋势可以外推到干预后</td>
+                                        <td>
+                                            SCM 可以理解为“引入多个外部单位作为对照后”的增强版 ITS，
+                                            用合成控制解决“单一时间序列无法区分宏观冲击”的问题。
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p class="footnote">
+                            实际研究中，SCM 常与 DiD 或回归方法一起使用：先用 SCM 获取图像化的效应轨迹，再用 DiD / 回归做稳健性检验。
+                        </p>
+                    </div>
+                </section>
+
+                <!-- 经典案例 + 练习（修改版，含具体数据和图表） -->
+                <section id="examples" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Applications</div>
+                            <h2 class="section-title">6. 经典案例与练习示例</h2>
+                            <p class="section-desc">
+                                下面对两个经典案例给出<strong>具体示例数据（教学版）</strong>、简易图表以及<strong>可操作的步骤流程</strong>，
+                                并在每个步骤后附上其背后的原理说明，便于在课堂或实验课中直接使用。
+                            </p>
+                        </div>
+
+                        <div class="two-column">
+                            <!-- 左：巴斯克 -->
+                            <div class="card">
+                                <h3 id="examples-6-1">6.1 巴斯克地区恐怖主义对经济的影响</h3>
+                                <p><strong>研究问题：</strong>恐怖主义冲突对巴斯克地区人均 GDP 有多大长期负面影响？</p>
+                                <p><strong>基本设定：</strong></p>
+                                <ul>
+                                    <li>处理单位：巴斯克地区。</li>
+                                    <li>对照库：西班牙其他未经历类似恐怖冲突的地区。</li>
+                                    <li>结果变量：人均 GDP（这里用 1970 年=100 的指数表示）。</li>
+                                    <li>干预：1968–1970 年恐怖活动显著升级，假设 \(T_0 = 1974\)。</li>
+                                </ul>
+
+                                <h4>6.1.1 教学用示例数据（节选）</h4>
+                                <p>假设根据真实数据构造出如下<strong>简化示例</strong>（单位：1970=100 的人均 GDP 指数）：</p>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>年份</th>
+                                            <th>巴斯克 实际</th>
+                                            <th>合成巴斯克</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>1970</td><td>100</td><td>100</td></tr>
+                                        <tr><td>1971</td><td>102</td><td>101</td></tr>
+                                        <tr><td>1972</td><td>104</td><td>104</td></tr>
+                                        <tr><td>1973</td><td>106</td><td>107</td></tr>
+                                        <tr><td>1974（干预前最后一年）</td><td>107</td><td>108</td></tr>
+                                        <tr><td>1975</td><td>108</td><td>112</td></tr>
+                                        <tr><td>1976</td><td>107</td><td>115</td></tr>
+                                        <tr><td>1977</td><td>105</td><td>118</td></tr>
+                                        <tr><td>1978</td><td>104</td><td>120</td></tr>
+                                        <tr><td>1979</td><td>103</td><td>122</td></tr>
+                                    </tbody>
+                                </table>
+                                <p class="data-note">
+                                    说明：以上数值为<strong>教学用简化数据</strong>，仅用于演示 SCM 的运算和图形效果，
+                                    不等同于原始论文中的精确数值。
+                                </p>
+
+                                <div class="chart-box">
+                                    <div class="chart-title">图 6-1　巴斯克 vs 合成巴斯克（示意图）</div>
+                                    <div class="chart-legend">
+                                        <span><span class="legend-swatch"></span> 巴斯克 实际</span>
+                                        <span><span class="legend-swatch synthetic"></span> 合成巴斯克</span>
+                                    </div>
+                                    <div class="chart-rows">
+                                        <!-- 仅用部分年份展示趋势，宽度与指数值大致成比例 -->
+                                        <div class="chart-row">
+                                            <div class="chart-label">1970</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:70%;"></div>
+                                                <div class="chart-bar synthetic" style="width:70%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1972</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:74%;"></div>
+                                                <div class="chart-bar synthetic" style="width:74%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1974</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:77%;"></div>
+                                                <div class="chart-bar synthetic" style="width:78%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1976</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:77%;"></div>
+                                                <div class="chart-bar synthetic" style="width:84%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1978</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:75%;"></div>
+                                                <div class="chart-bar synthetic" style="width:90%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1979</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:74%;"></div>
+                                                <div class="chart-bar synthetic" style="width:93%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="data-note">
+                                    图形解读：干预前（1970–1974）两条线几乎重合；干预后，合成巴斯克 GDP 持续上升，
+                                    而真实巴斯克停止上升甚至略有回落，二者之间的“缺口”就是估计的经济损失。
+                                </p>
+
+                                <h4>6.1.2 操作过程示例（以 R 包 <code>Synth</code> 为例）</h4>
+                                <ol class="example-steps">
+                                    <li>
+                                        <strong>Step 1：整理面板数据。</strong>
+                                        将“地区 × 年份”的人均 GDP、人口、产业结构等变量整理成长格式面板数据。
+                                        <br><em>原理：</em> SCM 立足于面板结构，需要在多个时间点上比较处理组与对照组的走势。
+                                    </li>
+                                    <li>
+                                        <strong>Step 2：构造预测矩阵 \(\mathbf{X}_1, \mathbf{X}_0\)。</strong>
+                                        对每个地区提取预测变量及干预前若干期的人均 GDP（例如 1970–1974 年的均值和逐年值），
+                                        形成处理组列向量 \(\mathbf{X}_1\) 和对照组矩阵 \(\mathbf{X}_0\)。
+                                        <br><em>原理：</em> 这些变量在因子模型中决定了未来走势，匹配它们等价于匹配潜在因子。
+                                    </li>
+                                    <li>
+                                        <strong>Step 3：设置 V 矩阵并选择其值。</strong>
+                                        在 <code>Synth</code> 中，可以通过函数内部的交叉验证选出使干预前拟合误差最小的对角矩阵 \(\mathbf{V}\)。 
+                                        <br><em>原理：</em> \(\mathbf{V}\) 控制每个预测变量的重要性，类似“加权的最小二乘”，
+                                        让对未来结果更重要的变量权重更大。
+                                    </li>
+                                    <li>
+                                        <strong>Step 4：求解合成权重 \(\hat{W}\)。</strong>
+                                        调用 <code>dataprep()</code> 和 <code>synth()</code>，由软件求解带约束的二次规划，
+                                        得到对照地区的权重（例如：纳瓦拉 0.4，拉里奥哈 0.3，加泰罗尼亚 0.3——仅示意）。
+                                        <br><em>原理：</em> 最小化干预前 \((\mathbf{X}_1 - \mathbf{X}_0 W)'\mathbf{V}(\mathbf{X}_1 - \mathbf{X}_0 W)\)，
+                                        在非负且和为 1 的约束下找到最优凸组合。
+                                    </li>
+                                    <li>
+                                        <strong>Step 5：检查干预前拟合。</strong>
+                                        用 <code>path.plot()</code> 绘制 1970–1974 年巴斯克和合成巴斯克的人均 GDP 曲线，
+                                        确认二者高度贴合。
+                                        <br><em>原理：</em> 如果干预前拟合就很差，说明某个“理想的合成对照”在数据中并不存在，
+                                        后续的因果解释便不可信。
+                                    </li>
+                                    <li>
+                                        <strong>Step 6：计算并绘制处理效应。</strong>
+                                        对每个 \(t &gt; T_0\)，计算
+                                        \(\hat{\alpha}_{1t} = Y_{1t} - \sum_j \hat{w}_j Y_{jt}\)，并以时间为横轴作出“缺口图”
+                                        （<code>gaps.plot()</code>）。
+                                        <br><em>原理：</em> 在因子模型和匹配条件成立时，这个缺口可以视为
+                                        \(Y_{1t}^I - Y_{1t}^N\)，即恐怖主义造成的经济损失。
+                                    </li>
+                                    <li>
+                                        <strong>Step 7：做 placebo 检验。</strong>
+                                        将每个对照地区依次假定为“处理组”，重复同样的 SCM 过程，得到一组“伪处理效应”曲线，
+                                        与巴斯克的曲线比较。
+                                        <br><em>原理：</em> 若巴斯克的缺口明显大于绝大多数 placebo 缺口，说明观测到的效应难以由随机波动解释，
+                                        提升因果解释的可信度。
+                                    </li>
+                                </ol>
+
+                                <h4>6.1.3 课堂练习建议</h4>
+                                <ul>
+                                    <li>给学生提供类似结构的简化面板数据（10 个地区 × 10 年），要求按上述步骤在 R 中重现图 6-1。</li>
+                                    <li>让学生尝试删除部分对照地区，观察合成权重和处理效应曲线如何变化，并讨论对结果稳健性的影响。</li>
+                                    <li>要求学生写出一句话解释：“为什么我们可以把巴斯克与合成巴斯克之间的缺口解释为恐怖主义的因果效应？”</li>
+                                </ul>
+                            </div>
+
+                            <!-- 右：加州控烟 -->
+                            <div class="card">
+                                <h3 id="examples-6-2">6.2 加州控烟政策 Proposition 99</h3>
+                                <p><strong>研究问题：</strong>1988 年加州通过的控烟政策对人均香烟消费量有多大长期抑制作用？</p>
+                                <p><strong>基本设定：</strong></p>
+                                <ul>
+                                    <li>处理单位：California。</li>
+                                    <li>对照库：美国其他未实施类似政策的州。</li>
+                                    <li>结果变量：人均香烟销售量（假设单位为“包/人·年”）。</li>
+                                    <li>干预：1988 年 Proposition 99 实施，假设 \(T_0 = 1988\)。</li>
+                                </ul>
+
+                                <h4>6.2.1 教学用示例数据（节选）</h4>
+                                <p>构造 1984–1992 年加州与合成加州的人均香烟销售（<strong>简化示例</strong>）：</p>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>年份</th>
+                                            <th>加州 实际（包/人·年）</th>
+                                            <th>合成加州</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr><td>1984</td><td>122</td><td>121</td></tr>
+                                        <tr><td>1985</td><td>120</td><td>120</td></tr>
+                                        <tr><td>1986</td><td>118</td><td>119</td></tr>
+                                        <tr><td>1987</td><td>117</td><td>117</td></tr>
+                                        <tr><td>1988（干预前最后一年）</td><td>115</td><td>115</td></tr>
+                                        <tr><td>1989</td><td>108</td><td>114</td></tr>
+                                        <tr><td>1990</td><td>103</td><td>112</td></tr>
+                                        <tr><td>1991</td><td>98</td><td>110</td></tr>
+                                        <tr><td>1992</td><td>95</td><td>108</td></tr>
+                                    </tbody>
+                                </table>
+                                <p class="data-note">
+                                    同样，这里数值仅为课堂演示所用的<strong>简化数据</strong>，
+                                    真实论文使用的是更长时间跨度和更精细的面板。
+                                </p>
+
+                                <div class="chart-box">
+                                    <div class="chart-title">图 6-2　加州 vs 合成加州香烟消费（示意图）</div>
+                                    <div class="chart-legend">
+                                        <span><span class="legend-swatch"></span> 加州 实际</span>
+                                        <span><span class="legend-swatch synthetic"></span> 合成加州</span>
+                                    </div>
+                                    <div class="chart-rows">
+                                        <div class="chart-row">
+                                            <div class="chart-label">1984</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:90%;"></div>
+                                                <div class="chart-bar synthetic" style="width:88%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1986</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:87%;"></div>
+                                                <div class="chart-bar synthetic" style="width:88%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1988</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:85%;"></div>
+                                                <div class="chart-bar synthetic" style="width:85%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1990</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:76%;"></div>
+                                                <div class="chart-bar synthetic" style="width:83%;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="chart-row">
+                                            <div class="chart-label">1992</div>
+                                            <div class="chart-bar-group">
+                                                <div class="chart-bar actual" style="width:70%;"></div>
+                                                <div class="chart-bar synthetic" style="width:80%;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <p class="data-note">
+                                    图形解读：干预前销售水平非常接近；干预后，加州实际销售快速下降，而“合成加州”保持更高水平，
+                                    两者的差值就是控烟政策的估计效应。
+                                </p>
+
+                                <h4>6.2.2 操作过程示例（R / Python 通用思路）</h4>
+                                <ol class="example-steps">
+                                    <li>
+                                        <strong>Step 1：导入并清洗数据。</strong>
+                                        将所有州的年度香烟销售量和协变量读入（如 <code>read.csv()</code> 或 <code>pandas.read_csv()</code>），
+                                        统一单位、处理缺失值。
+                                        <br><em>原理：</em> SCM 对异常值和缺失较敏感，干净的面板是可靠估计的前提。
+                                    </li>
+                                    <li>
+                                        <strong>Step 2：划分处理组与对照库。</strong>
+                                        设 California 为处理州，其他未实施类似大规模控烟政策的州作为对照库；
+                                        剔除数据质量差或本身有强干预的州。
+                                        <br><em>原理：</em> 对照库应尽量满足“同样暴露于宏观冲击，但没有该政策”的条件。
+                                    </li>
+                                    <li>
+                                        <strong>Step 3：构造 \(\mathbf{X}_1, \mathbf{X}_0\) 和时间段。</strong>
+                                        选择干预前的若干年份（如 1970–1988）作为拟合窗口，提取人均收入、人口结构、历史香烟消费等变量，
+                                        构造预测矩阵。
+                                        <br><em>原理：</em> 通过丰富的历史信息，让合成加州在干预前轨迹上尽量与真实加州一致，以匹配潜在因子。
+                                    </li>
+                                    <li>
+                                        <strong>Step 4：求解合成权重。</strong>
+                                        <ul>
+                                            <li>在 R：使用 <code>dataprep()</code>、<code>synth()</code>。</li>
+                                            <li>在 Python：可以用现有的 <code>syntheticcontrol</code> 包，或自己编写二次规划求解器（如 <code>cvxpy</code>）。</li>
+                                        </ul>
+                                        <br><em>原理：</em> 与巴斯克例子相同，通过最小化干预前均方误差找到最优凸组合。
+                                    </li>
+                                    <li>
+                                        <strong>Step 5：绘制结果路径图。</strong>
+                                        画出 1970–1992 年加州与合成加州的香烟销售路径（类似图 6-2），并在图中标出 1988 年的垂直线。
+                                        <br><em>原理：</em> 直观考察干预前拟合（验证假设）和干预后缺口（估计效应）。
+                                    </li>
+                                    <li>
+                                        <strong>Step 6：计算年度缺口与平均效应。</strong>
+                                        根据表中示例：
+                                        <ul>
+                                            <li>1989 年缺口：\(108 - 114 = -6\) 包/人·年；</li>
+                                            <li>1990 年缺口：\(103 - 112 = -9\)；</li>
+                                            <li>1991 年缺口：\(98 - 110 = -12\)；</li>
+                                            <li>1992 年缺口：\(95 - 108 = -13\)。</li>
+                                        </ul>
+                                        取平均缺口作为“实施后 4 年平均效应”。
+                                        <br><em>原理：</em> 年度缺口估计的是当年处理效应，平均缺口估计的是一个时间窗口上的平均处理效应。
+                                    </li>
+                                    <li>
+                                        <strong>Step 7：做灵敏度分析。</strong>
+                                        改变对照库组成或预测变量集合，重新估计 SCM，看结果是否稳健；
+                                        也可以加入 placebo 检验。
+                                        <br><em>原理：</em> 若结论在合理的模型设定变化下都保持一致，说明估计结果对研究者主观选择不太敏感，更可信。
+                                    </li>
+                                </ol>
+
+                                <h4>6.2.3 练习任务设计</h4>
+                                <ul>
+                                    <li>给学生提供一份“简化版美国烟草数据”，要求在 R / Python 中复现表格和图 6-2。</li>
+                                    <li>要求学生尝试只用“1980–1988”作为拟合窗口，观察合成加州的权重与结果是否明显改变。</li>
+                                    <li>让学生思考：若某些对照州在 1990 年之后也出台强控烟政策，使用整个 1970–2000 年的数据做 SCM 会带来什么偏差？</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 实务要点与扩展 -->
+                <section id="reading" class="section">
+                    <div class="container">
+                        <div class="section-header">
+                            <div class="section-eyebrow">Practice & Reading</div>
+                            <h2 class="section-title">7. 实务注意事项与进一步阅读</h2>
+                            <p class="section-desc">
+                                实证中使用合成控制时，还有很多技术细节（如 inference、交叉验证、扩展方法等），这里只做简要提示。
+                            </p>
+                        </div>
+
+                        <div class="two-column">
+                            <div class="card">
+                                <h3 id="reading-7-1">7.1 实务小贴士</h3>
+                                <ul>
+                                    <li><strong>干预前拟合质量</strong> 是最直观的诊断：如果干预前就拟合很差，干预后差异就很难解释为因果效应。</li>
+                                    <li>对照库的选择要谨慎：过多的候选单位可能带来噪声，过少则难以拟合。</li>
+                                    <li>可通过 <strong>placebo 检验</strong>：把对照单位当作“假处理组”，检查是否容易得到类似大的效果。</li>
+                                    <li>如果有多个处理单位，可以考虑<strong>扩展版合成控制</strong>，或者把多个处理单位先平均后再做 SCM。</li>
+                                </ul>
+                            </div>
+
+                            <div class="card">
+                                <h3 id="reading-7-2">7.2 推荐阅读（英文原始文献）</h3>
+                                <ul>
+                                    <li>Abadie &amp; Gardeazabal (2003) – <em>The Economic Costs of Conflict: A Case Study of the Basque Country</em>.</li>
+                                    <li>Abadie, Diamond &amp; Hainmueller (2010) – <em>Synthetic Control Methods for Comparative Case Studies: Estimating the Effect of California's Tobacco Control Program</em>.</li>
+                                    <li>Abadie (2019) – <em>Using Synthetic Controls: Feasibility, Data Requirements, and Methodological Aspects</em>.</li>
+                                    <li>Abadie, Diamond &amp; Hainmueller (2015) – <em>Comparative Politics and the Synthetic Control Method</em>.</li>
+                                </ul>
+                                <p class="footnote">
+                                    这些文章分别介绍了合成控制法的经典应用、理论扩展与实践细节，非常适合作为课程的进一步阅读材料。
+                                </p>
+                            </div>
+                        </div>
+
+                        <a href="#top" class="back-to-top">↑ 回到顶部</a>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <footer>
+        本页面内容可作为“因果推断 / 政策评估”课程中关于合成控制法的一讲课程讲义原型。
+        如用于课堂，请结合原始文献与软件示例（如 R 的 <code>Synth</code> 包、Python 的 <code>syntheticcontrol</code> 等）进行演示。<br/>
+        <br/>
+        &copy; 你的名字 / 课程名称
+    </footer>
+</body>
+</html>
