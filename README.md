@@ -1,4 +1,5 @@
 ## 合成控制法教学网页
+https://masterta0.github.io/MasterTa0/
 <!--
 **MasterTa0/MasterTa0** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
